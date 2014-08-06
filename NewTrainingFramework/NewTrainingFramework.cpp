@@ -27,14 +27,21 @@ CTexture textureList[NUMBER_TEXTURE2D];
 
 bool bIsLightSource = false;
 
-GLuint fboId;
+//GLuint fboId;
 GLuint colorTexId;
 GLuint depthTexId;
+
+//FBO
+GLuint textureId;
+GLuint rboId;
+GLuint fboId;
+GLuint mDepthTexFBO;
 
 void InitResource(void);
 void InitObjects(void);
 void DrawObject(Object3D, CCamera);
 void InitFBO(void);
+void InitFBO_(void);
 
 int Init ( ESContext *esContext )
 {
@@ -46,12 +53,16 @@ int Init ( ESContext *esContext )
 	InitResource();
 	InitObjects();
 	InitFBO();
+	InitFBO_();
 	
 	return 0;
 }
 
 void Draw ( ESContext *esContext )
 {
+	glViewport(0, 0, 1024, 1024);
+	glBindFramebuffer(GL_FRAMEBUFFER, fboId);
+
 	glClearColor ( 0.0f, 0.0f, 1.0f, 0.0f );
 	glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
@@ -60,8 +71,14 @@ void Draw ( ESContext *esContext )
 
 	//draw scene's objects
 	DrawObject(objectList[0], mainCamera);	//ligh buld
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glViewport(0, 0, 1024, 1024);
+	glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+
 	DrawObject(objectList[1], mainCamera);	//terrain
 	DrawObject(objectList[2], mainCamera);	//sphere
+
+	
 
 	eglSwapBuffers ( esContext->eglDisplay, esContext->eglSurface );
 }
@@ -199,9 +216,11 @@ void InitObjects()
 	objectList[2].m_Model = &modelList[2];
 	objectList[2].m_Shaders = &shaderList[2];
 
-	objectList[2].m_NoTexture2D = 1;
-	objectList[2].m_TextureList = new CTexture();
+	objectList[2].m_NoTexture2D = 2;
+	objectList[2].m_TextureList = new CTexture[2];
 	objectList[2].m_TextureList = &textureList[3];
+	objectList[2].m_TextureList[0] = textureList[3];
+	objectList[2].m_TextureList[1] = textureList[3];
 
 	objectList[2].pos = Vector3(0.0f, 30.0f, 0.0f);
 	objectList[2].scale = Vector3(0.1f, 0.1f, 0.1f);
@@ -307,4 +326,37 @@ void InitFBO(void)
 	
 	//unbind FBO
 	//...
+}
+
+void InitFBO_(void)
+{
+	// Create FrameBuffer
+	glGenFramebuffers(1, &fboId);
+	glBindFramebuffer(GL_FRAMEBUFFER, fboId);
+
+	glGenTextures(1, &textureId);
+	glBindTexture(GL_TEXTURE_2D, textureId);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1024, 1024, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureId, 0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	glGenTextures(1, &mDepthTexFBO);
+	glBindTexture(GL_TEXTURE_2D, mDepthTexFBO);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, 1024, 1024, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, NULL);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, mDepthTexFBO, 0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	//cheat water
+	//objectList[3].m_TextureList[6].m_TextureID = textureId;
+	objectList[2].m_TextureList[1].m_TextureID = textureId;
 }
